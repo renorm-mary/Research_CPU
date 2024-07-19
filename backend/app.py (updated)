@@ -1,0 +1,5 @@
+from resources import Compile, UserRegister, UserLogin
+
+api.add_resource(Compile, '/compile')
+api.add_resource(UserRegister, '/register')
+api.add_resource(UserLogin, '/login')
