@@ -1,4 +1,77 @@
-# Web version emulator 
+# Web-Based Pascal Compiler and CPU Emulator
+
+This project provides a web-based interface for a custom Pascal compiler and CPU emulator. It includes a graphical user interface for writing, saving, and compiling Pascal and assembly programs, as well as features for multi-user support, program storage, and CPU description access.
+
+## Features
+
+- **Graphical User Interface**: Write, edit, and save Pascal and assembly programs.
+- **Compilation and Emulation**: Compile Pascal programs and emulate the custom CPU.
+- **Multi-User Support**: Users can create accounts, login, and manage their own programs.
+- **Program Storage**: Securely store user programs with encryption.
+- **CPU Description Access**: Easy access to the custom CPU documentation and resources.
+
+## Directory Structure
+## Files and Directories
+
+
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.x
+- Flask
+- Additional dependencies listed in `requirements.txt`
+
+### Installation
+
+1. Clone the repository:
+    ```sh
+    git clone <repository-url>
+    cd web_emulator
+    ```
+
+2. Install dependencies:
+    ```sh
+    pip install -r requirements.txt
+    ```
+
+3. Run the Flask application:
+    ```sh
+    python app.py
+    ```
+
+4. Open your web browser and go to `http://127.0.0.1:5000/` to access the web interface.
+
+## Usage
+
+1. **Register**: Create a new user account.
+2. **Login**: Log in with your user account.
+3. **Write Program**: Use the editor to write Pascal or assembly code.
+4. **Save Program**: Save your code securely.
+5. **Compile**: Compile Pascal code into assembly.
+6. **Emulate**: Run the assembly code on the custom CPU emulator.
+
+## Development
+
+### Adding Features
+
+The project is designed to be extensible. You can add new features by modifying the Flask application, adding new routes, or extending the compiler and emulator functionality.
+
+### Frontend Customization
+
+The frontend is built using HTML, CSS, and JavaScript. You can customize the look and feel by editing the files in the `static` and `templates` directories.
+
+## Contributing
+
+Contributions are welcome! Please fork the repository, make changes, and submit a pull request.
+
+## License
+
+This project is licensed under the MIT License. See the LICENSE file for details.
+
+
+# Core functionalit.
 
 # CPU emulator
 
