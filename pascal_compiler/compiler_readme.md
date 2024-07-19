@@ -8,29 +8,29 @@ This is a simple Pascal compiler implemented in Python. The compiler includes a 
 pascal_compiler/
     lexer.py
     parser.py
-main.py
-README.md
+    pascal.py
+    compiler_README.md
 ```
 
 ## Files
 
 - **lexer.py**: Tokenizes the Pascal source code.
 - **parser.py**: Parses the tokens into an Abstract Syntax Tree (AST).
-- **main.py**: Main script to compile Pascal source files.
+- **pascal.py**: Main script to compile Pascal source files.
 - **README.md**: This file.
 
 ## Usage
 
-To use the compiler, run the `main.py` script with the Pascal source file as an argument:
+To use the compiler, run the `pascal.py` script with the Pascal source file as an argument:
 
 ```sh
-python main.py <source_file>
+python pascal.py <source_file>
 ```
 
 ### Example
 
 ```sh
-python main.py example.pas
+python pascal.py example.pas
 ```
 
 This will tokenize, parse, and compile the provided Pascal source file.
