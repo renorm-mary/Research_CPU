@@ -1,28 +1,27 @@
-import sys
-import os
-from lexer import tokenize
-from parser import Parser
+from lexer import lexer
+from parser import parse
+from typing import List, Dict
 
-def main(source_file):
-    if not os.path.isfile(source_file):
-        print(f"File not found: {source_file}")
-        return
+def compile_pascal_code(source_code: str) -> List[Dict[str, str]]:
+    """
+    Compiles the given Pascal source code into an AST.
 
-    with open(source_file, 'r') as file:
-        code = file.read()
+    :param source_code: The Pascal source code as a string.
+    :return: The AST as a list of dictionaries.
+    """
+    tokens = lexer(source_code)
+    ast = parse(tokens)
+    return ast
 
-    try:
-        tokens = tokenize(code)
-        parser = Parser(tokens)
-        ast = parser.parse()
-        print("Compilation successful!")
-        # Here, you would typically have additional steps to generate the target code
-        # from the AST and perform any further processing required.
-    except RuntimeError as e:
-        print(f"Compilation error: {e}")
+if __name__ == '__main__':
+    import argparse
 
-if __name__ == "__main__":
-    if len(sys.argv) != 2:
-        print("Usage: python main.py <source_file>")
-    else:
-        main(sys.argv[1])
+    parser = argparse.ArgumentParser(description='Compile Pascal source code.')
+    parser.add_argument('source_file', type=str, help='The Pascal source code file to compile.')
+    args = parser.parse_args()
+
+    with open(args.source_file, 'r') as file:
+        source_code = file.read()
+    
+    ast = compile_pascal_code(source_code)
+    print(ast)
