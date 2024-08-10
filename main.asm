@@ -8,33 +8,33 @@ START:
         MOV %R7, 0x800
         MOV %R8, 0x0
 
-        OUT %R7, %R8
+        ;OUT %R7, %R8
 
 
 
         ; Load the starting address of the string into %R0
-        MOV %R4, STRING_ADDR
+        LOAD %R4, STRING_ADDR
 
         ; Trigger display interrupt to print the string
         INT 0x2
 
-        OUT 0x840, 'H'
-        OUT 0x841, 'E'
-        OUT 0x842, 'R'
-        OUT 0x843, 'O'
-        OUT 0x844, 'I'
-        OUT 0x845, 'N'
-        OUT 0x846, 'R'
-        OUT 0x847, 'S'
-        OUT 0x848, 'U'
-        OUT 0x849, 'S'
-        OUT 0x84a, 'Y'
-        OUT 0x84b, 'M'
-        OUT 0x84c, '='
-        OUT 0x84d, 'L'
-        OUT 0x84e, 'O'
-        OUT 0x84f, 'V'
-        OUT 0x850, 'E'
+        OUTI 0x840, 'H'
+        OUTI 0x841, 'E'
+        OUTI 0x842, 'R'
+        OUTI 0x843, 'O'
+        OUTI 0x844, 'I'
+        OUTI 0x845, 'N'
+        OUTI 0x846, 'R'
+        OUTI 0x847, 'S'
+        OUTI 0x848, 'U'
+        OUTI 0x849, 'S'
+        OUTI 0x84a, 'Y'
+        OUTI 0x84b, 'M'
+        OUTI 0x84c, '='
+        OUTI 0x84d, 'L'
+        OUTI 0x84e, 'O'
+        OUTI 0x84f, 'V'
+        OUTI 0x850, 'E'
 
 
         HALT

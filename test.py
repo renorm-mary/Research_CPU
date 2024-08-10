@@ -9,13 +9,10 @@ class Assembler:
         self.instructions = {}
         self.registers = {}
         self.labels = {}
+        self.data_labels = {}  # Data labels with their addresses and values
         self.defines = {}
-        self.text_segment = []
-        self.static_segment = []
-        self.heap_segment = []
-        self.stack_segment = []
-        self.interrupt_handlers = []
-        self.current_segment = self.text_segment
+        self.text_segment = []  # Instructions go here
+        self.data_segment = []  # Separate segment for data
         self.current_address = 0
         self.load_json_config(json_config_file)
 
@@ -26,7 +23,6 @@ class Assembler:
         try:
             with open(json_config_file, 'r') as file:
                 data = json.load(file)
-                # Registers should be read with '%' prefix in the JSON itself.
                 self.registers = data.get('registers', {})
                 for instr in data.get('instructions', []):
                     mnemonic = instr['mnemonic']
@@ -50,7 +46,7 @@ class Assembler:
         for line in lines:
             line = line.split(';')[0].strip()  # Remove comments
 
-            if not line:
+            if not line:l
                 continue
 
             # Handle #include directive
@@ -116,7 +112,6 @@ class Assembler:
             preprocessed_lines = include_stack + preprocessed_lines
 
         return preprocessed_lines
-    
 
     def parse_line_first_pass(self, line):
         """
@@ -132,7 +127,7 @@ class Assembler:
             value = parts[2] if len(parts) > 2 else "0"
             self.data_labels[label] = (self.current_address, value)
             self.current_address += len(value)  # Assuming 1 byte per value character
-            self.static_segment.append((label, value))
+            self.data_segment.append((label, value))
             return
 
         # Handle code labels
@@ -146,7 +141,6 @@ class Assembler:
             mnemonic = parts[0].upper()
             instr_info = self.instructions[mnemonic]
             self.current_address += sum(instr_info['field_sizes'].values()) // 8
-            return
 
     def first_pass(self, lines):
         """
@@ -174,16 +168,10 @@ class Assembler:
 
             # Convert operands to bitwise representation
             operand_bits = []
-            #print(self.registers)
-            print(operands)
-            print(instr_info)
             for i, operand in enumerate(operands):
-                operand = operand.replace(",","")
                 operand_type = instr_info['operand_types'][i]
                 field_name = f"r{i+1}"
                 if operand_type == 'register':
-                    operand = operand[1:].replace(",","")
-                    #print(self.registers) 
                     if operand in self.registers:
                         operand_bits.append(self.registers[operand])
                     else:
@@ -191,51 +179,33 @@ class Assembler:
                         return
                 elif operand_type == 'immediate':
                     imm_size = instr_info['field_sizes'].get(field_name, 8)
-                    if len(operand) == 3 and operand[0] == "'" and operand[2] == "'":
-                        operand = ord(operand[1])
-                        operand_bits.append(format(operand, f'0{imm_size}b'))
-                    elif operand.startswith('0x'):
-                        operand_bits.append(format(int(operand, 16), f'0{imm_size}b'))
-                    else:
-                        operand_bits.append(format(int(operand), f'0{imm_size}b'))
-                
+                    operand_bits.append(format(int(operand), f'0{imm_size}b'))
                 elif operand_type == 'memory':
                     mem_size = instr_info['field_sizes'].get(field_name, 16)
-                    if operand in self.labels:
-                        mem_addr = self.labels[operand]
-                        operand_bits.append(format(mem_addr, f'0{mem_size}b'))
-                    elif operand.isdigit():
-                        operand_bits.append(format(int(operand), f'0{mem_size}b'))
-                    else:
-                        print(f"Error: Undefined label {operand}")
-                        return
+                    operand_bits.append(format(int(operand), f'0{mem_size}b'))
                 elif operand_type == 'address':
                     addr_size = instr_info['field_sizes'].get(field_name, 16)
                     if operand in self.labels:
                         address = self.labels[operand]
+                        operand_bits.append(format(address, f'0{addr_size}b'))
+                    elif operand in self.data_labels:
+                        address = self.data_labels[operand][0]
                         operand_bits.append(format(address, f'0{addr_size}b'))
                     else:
                         print(f"Error: Undefined label {operand}")
                         return
                 elif operand_type == 'port':
                     port_size = instr_info['field_sizes'].get(field_name, 8)
-                    if operand.startswith('0x'):
-                        operand_bits.append(format(int(operand, 16), f'0{port_size}b'))
-                    else:
-                        operand_bits.append(format(int(operand), f'0{port_size}b'))
+                    operand_bits.append(format(int(operand), f'0{port_size}b'))
                 elif operand_type == 'interrupt':
                     int_size = instr_info['field_sizes'].get(field_name, 8)
-                    if operand.startswith('0x'):
-                        operand_bits.append(format(int(operand, 16), f'0{int_size}b'))
-                    else:
-                        operand_bits.append(format(int(operand), f'0{int_size}b'))
+                    operand_bits.append(format(int(operand), f'0{int_size}b'))
                 else:
                     print(f"Error: Unsupported operand type {operand_type}")
                     return
 
             # Construct the instruction
             bitwise_instr = instr_info['bitwise_description']['opcode'] + ''.join(operand_bits)
-            bitwise_instr = bitwise_instr.zfill(32)
             self.text_segment.append(bitwise_instr)
 
     def second_pass(self, lines):
@@ -268,7 +238,7 @@ class Assembler:
         try:
             with open(output_file, 'wb') as file:
                 # Write data segment first
-                for label, value in self.static_segment:
+                for label, value in self.data_segment:
                     # Assume values are string bytes; modify this as needed for your data format
                     file.write(value.encode('utf-8'))  # Fixed the encoding
 
@@ -291,7 +261,6 @@ def main():
     
     assembler = Assembler(args.json_config_file)
     assembler.assemble(args.input_file)
-    print("write")
     assembler.write_output(args.output_file)
 
 if __name__ == '__main__':
