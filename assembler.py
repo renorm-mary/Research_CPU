@@ -261,22 +261,39 @@ class Assembler:
             print(f"Error: Input file '{input_file}' not found.")
             sys.exit(1)
 
+
+
     def write_output(self, output_file):
         """
-        Write the assembled machine code to the output binary file.
+        Write the assembled machine code to the output text file with addresses and data in hex format.
         """
         try:
-            with open(output_file, 'wb') as file:
-                # Write data segment first
-                for label, value in self.static_segment:
-                    # Assume values are string bytes; modify this as needed for your data format
-                    file.write(value.encode('utf-8'))  # Fixed the encoding
-
+            with open(output_file, 'w') as file:
+                # Reset current address
+                self.current_address = 0
+    
                 # Write text segment
-                for instruction in self.text_segment:
-                    # Write each instruction as bytes
-                    packed_instruction = int(instruction, 2).to_bytes((len(instruction) + 7) // 8, byteorder='big')
-                    file.write(packed_instruction)
+                for item in self.text_segment:
+                    if isinstance(item, tuple) and item[0] == '.org':
+                        # Set current address to the value specified by .org directive
+                        self.current_address = int(item[1], 16)
+                    else:
+                        # Write address and instruction in hex format
+                        hex_instruction = hex(int(item, 2))[2:].zfill(8)
+                        file.write(f"{self.current_address:04X}: {hex_instruction}\n")
+                        self.current_address += 4
+    
+                # Write data segment
+                for item in self.static_segment:
+                    if isinstance(item, tuple) and item[0] == '.org':
+                        # Set current address to the value specified by .org directive
+                        self.current_address = int(item[1], 16)
+                    else:
+                        label, value = item
+                        # Write address and data in hex format
+                        hex_value = ''.join(format(ord(char), '02X') for char in value)
+                        file.write(f"{self.current_address:04X}: {hex_value}\n")
+                        self.current_address += len(hex_value) // 2
         except IOError as e:
             print(f"Error: Unable to write to output file '{output_file}'. {e}")
             sys.exit(1)
