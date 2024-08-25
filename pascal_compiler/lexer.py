@@ -1,59 +1,115 @@
 import re
+from typing import List, Union
 
-# Token specification
-token_specification = [
-    ('NUMBER',  r'\d+(\.\d*)?'),       # Integer or decimal number
-    ('ASSIGN',  r':='),                # Assignment operator
-    ('END',     r';'),                 # Statement terminator
-    ('BEGIN',   r'BEGIN'),             # BEGIN keyword
-    ('END',     r'END'),               # END keyword
-    ('IF',      r'IF'),                # IF keyword
-    ('THEN',    r'THEN'),              # THEN keyword
-    ('ELSE',    r'ELSE'),              # ELSE keyword
-    ('WHILE',   r'WHILE'),             # WHILE keyword
-    ('DO',      r'DO'),                # DO keyword
-    ('FOR',     r'FOR'),               # FOR keyword
-    ('TO',      r'TO'),                # TO keyword
-    ('PROCEDURE', r'PROCEDURE'),       # PROCEDURE keyword
-    ('FUNCTION', r'FUNCTION'),         # FUNCTION keyword
-    ('VAR',     r'VAR'),               # VAR keyword
-    ('ARRAY',   r'ARRAY'),             # ARRAY keyword
-    ('OF',      r'OF'),                # OF keyword
-    ('STRING',  r'STRING'),            # STRING keyword
-    ('TYPE',    r'TYPE'),              # TYPE keyword
-    ('INTEGER', r'INTEGER'),           # INTEGER keyword
-    ('REAL',    r'REAL'),              # REAL keyword
-    ('CHAR',    r'CHAR'),              # CHAR keyword
-    ('BOOLEAN', r'BOOLEAN'),           # BOOLEAN keyword
-    ('TRUE',    r'TRUE'),              # TRUE keyword
-    ('FALSE',   r'FALSE'),             # FALSE keyword
-    ('DIRECTIVE', r'\{\$[^}]+\}'),     # Compiler directives
-    ('COMMENT', r'\(\*.*?\*\)', re.S), # Multi-line comments
-    ('SINGLE_COMMENT', r'\{[^}]*\}'),  # Single-line comments
-    ('STRING_LITERAL', r"'[^']*'|\"[^\"]*\""),  # String literals
-    ('ID',      r'[A-Za-z_][A-Za-z0-9_]*'),  # Identifiers
-    ('OP',      r'[+\-*/<>]'),         # Arithmetic and comparison operators
-    ('NEWLINE', r'\n'),                # Line endings
-    ('SKIP',    r'[ \t]+'),            # Skip over spaces and tabs
-    ('MISMATCH',r'.'),                 # Any other character
+class Token:
+    def __init__(self, type: str, value: Union[str, int, float], line: int, column: int):
+        self.type = type
+        self.value = value
+        self.line = line
+        self.column = column
+
+    def __repr__(self):
+        return f'Token({self.type}, {repr(self.value)}, line={self.line}, col={self.column})'
+
+class LexerError(Exception):
+    def __init__(self, message: str, line: int, column: int):
+        self.message = message
+        self.line = line
+        self.column = column
+
+    def __str__(self):
+        return f"Lexer error at line {self.line}, column {self.column}: {self.message}"
+
+TOKEN_SPEC = [
+    ('REAL',    r'\d+\.\d+'),
+    ('INTEGER', r'\d+'),
+    ('ASSIGN',  r':='),
+    ('SEMICOLON', r';'),
+    ('COLON', r':'),
+    ('COMMA', r','),
+    ('DOT', r'\.'),
+    ('LPAREN',  r'\('),
+    ('RPAREN',  r'\)'),
+    ('LBRACKET', r'\['),
+    ('RBRACKET', r'\]'),
+    ('PLUS', r'\+'),
+    ('MINUS', r'-'),
+    ('MUL', r'\*'),
+    ('DIV', r'/'),
+    ('LTE', r'<='),
+    ('GTE', r'>='),
+    ('EQ', r'='),
+    ('NEQ', r'<>'),
+    ('LT', r'<'),
+    ('GT', r'>'),
+    ('KEYWORD', r'\b(AND|ARRAY|BEGIN|CASE|CONST|DIV|DO|DOWNTO|ELSE|END|FILE|FOR|FUNCTION|GOTO|IF|IN|LABEL|MOD|NIL|NOT|OF|OR|PACKED|PROCEDURE|PROGRAM|RECORD|REPEAT|SET|THEN|TO|TYPE|UNTIL|VAR|WHILE|WITH)\b'),
+    ('BOOLEAN', r'\b(TRUE|FALSE)\b'),
+    ('STRING',  r"'[^']*'"),
+    ('ID',      r'\b[A-Za-z_][A-Za-z0-9_]*\b'),
+    ('COMMENT', r'\{[^}]*\}|\(\*.*?\*\)'),
+    ('NEWLINE', r'\n'),
+    ('SKIP',    r'[ \t]+'),
+    ('MISMATCH',r'.'),
 ]
 
-token_re = '|'.join('(?P<%s>%s)' % pair for pair in token_specification)
+class Lexer:
+    def __init__(self, code: str):
+        self.code = code
+        self.tokens = []
+        self.current_line = 1
+        self.current_column = 1
 
-def tokenize(code):
-    tokens = []
-    for mo in re.finditer(token_re, code):
-        kind = mo.lastgroup
-        value = mo.group()
-        if kind == 'NUMBER':
-            value = float(value) if '.' in value else int(value)
-        elif kind == 'STRING_LITERAL':
-            kind = 'STRING'
-        elif kind == 'ID' and value.upper() in ('BEGIN', 'END', 'IF', 'THEN', 'ELSE', 'WHILE', 'DO', 'FOR', 'TO', 'PROCEDURE', 'FUNCTION', 'VAR', 'ARRAY', 'OF', 'STRING', 'TYPE', 'INTEGER', 'REAL', 'CHAR', 'BOOLEAN', 'TRUE', 'FALSE'):
-            kind = value.upper()
-        elif kind in ('SKIP', 'COMMENT', 'SINGLE_COMMENT'):
-            continue
-        elif kind == 'MISMATCH':
-            raise RuntimeError(f'{value!r} unexpected')
-        tokens.append((kind, value))
-    return tokens
+    def tokenize(self) -> List[Token]:
+        position = 0
+        while position < len(self.code):
+            match = None
+            for token_type, pattern in TOKEN_SPEC:
+                regex = re.compile(pattern)
+                match = regex.match(self.code, position)
+                if match:
+                    value = match.group(0)
+                    if token_type == 'INTEGER':
+                        value = int(value)
+                    elif token_type == 'REAL':
+                        value = float(value)
+                    elif token_type == 'STRING':
+                        value = value[1:-1]  # Remove quotes
+                    elif token_type == 'KEYWORD':
+                        token_type = value.upper()
+                    elif token_type == 'BOOLEAN':
+                        token_type = 'BOOLEAN'
+                    elif token_type in ('COMMENT', 'SKIP'):
+                        position = match.end()
+                        self.update_position(match.group(0))
+                        break
+                    elif token_type == 'NEWLINE':
+                        self.current_line += 1
+                        self.current_column = 1
+                        position = match.end()
+                        break
+                    
+                    if token_type != 'SKIP':
+                        token = Token(token_type, value, self.current_line, self.current_column)
+                        self.tokens.append(token)
+                    
+                    self.update_position(match.group(0))
+                    position = match.end()
+                    break
+            
+            if not match:
+                raise LexerError(f'Unexpected character: {self.code[position]}', 
+                                 self.current_line, self.current_column)
+
+        return self.tokens
+
+    def update_position(self, value: str):
+        lines = value.split('\n')
+        if len(lines) > 1:
+            self.current_line += len(lines) - 1
+            self.current_column = len(lines[-1]) + 1
+        else:
+            self.current_column += len(value)
+
+def tokenize(code: str) -> List[Token]:
+    lexer = Lexer(code)
+    return lexer.tokenize()
