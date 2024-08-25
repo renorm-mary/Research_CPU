@@ -11,25 +11,6 @@ VAR
   numbers: ARRAY[1..10] OF INTEGER;
   word: STRING;
 
-FUNCTION Factorial(n: INTEGER): INTEGER;
-VAR
-    i: INTEGER;
-BEGIN
-  i := n;
-  IF i <= 10 THEN
-    Factorial := 1
-  ELSE
-    Factorial := n * Factorial(n - 1);
-END;
-
-PROCEDURE PrintNumbers;
-VAR
-  i: INTEGER;
-BEGIN
-  FOR i := 1 TO 10 DO
-    WRITE(numbers[i],'');
-  WRITELN;
-END;
 
 BEGIN
 
@@ -37,7 +18,7 @@ BEGIN
   { Test arithmetic operations }
   x := 10.5;
   y := 5.2;
-  
+  x:=10.87;
   { Test boolean operations }
   flag := TRUE;
   
@@ -55,11 +36,8 @@ BEGIN
   { Test arrays }
   FOR i := 1 TO 10 DO
     numbers[i] := i * i;
-  WRITE('Square numbers: ');
-  PrintNumbers;
   
   { Test functions }
-  WRITELN('Factorial of 5: ', Factorial(5));
   
   { Test string operations }
   word := 'Pascal';

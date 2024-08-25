@@ -3,7 +3,7 @@ from typing import Dict, Union, List
 from pascal_parser import (
     ASTNode, Program, Block, VarDecl, Const, Type, Procedure, Function,
     SimpleType, ArrayType, Var, Assign, BinOp, UnaryOp, Num, String,
-    Boolean, CompoundStatement, If, While, For, Case, ProcedureCall
+    Boolean, CompoundStatement, If, While, For, Case, ProcedureCall, NoOp
 )
 from lexer import Token
 
@@ -65,12 +65,16 @@ class SemanticAnalyzer:
         self.current_scope: ScopedSymbolTable = None
 
     def visit(self, node: ASTNode):
+        if node is None:
+            return None
         method_name = f'visit_{type(node).__name__}'
-        visitor = getattr(self, method_name, self.generic_visit)
-        return visitor(node)
-
-    def generic_visit(self, node: ASTNode):
-        raise CompilerError(f"No visit_{type(node).__name__} method")
+        print(f"Visiting node: {type(node).__name__}")  # Debug print
+        visitor = getattr(self, method_name, None)
+        if visitor is None:
+            raise CompilerError(f"No visit method found for {type(node).__name__}")
+        result = visitor(node)
+        print(f"Result of {method_name}: {result}")  # Debug print
+        return result
 
     def create_type_token(self, type_name: str) -> Token:
         return Token(type_name, type_name, 0, 0)
@@ -95,6 +99,7 @@ class SemanticAnalyzer:
             raise CompilerError(f"Duplicate identifier '{var_name}' found")
 
         self.current_scope.insert(var_symbol)
+        return type_symbol  # Return the type of the variable
 
     def visit_Const(self, node: Const):
         type_symbol = self.visit(node.value)
@@ -176,37 +181,76 @@ class SemanticAnalyzer:
         var_symbol = self.current_scope.lookup(var_name)
         if var_symbol is None:
             raise CompilerError(f"Symbol(identifier) not found '{var_name}'")
+        if var_symbol.type is None:
+            raise CompilerError(f"Type information missing for variable '{var_name}'")
+        return var_symbol.type
 
     def visit_Assign(self, node: Assign):
         right_type = self.visit(node.right)
         left = self.visit(node.left)
-        if isinstance(left, VariableSymbol):
-            if not self._check_type_compatibility(left.type, right_type):
-                raise CompilerError(f"Incompatible types in assignment")
 
+        if isinstance(left, SimpleType):
+            left_type = left
+        elif isinstance(left, VariableSymbol):
+            left_type = left.type
+        else:
+            raise CompilerError(f"Invalid left-hand side in assignment: {type(left)}")
+
+        if not self._check_type_compatibility(left_type, right_type):
+            raise CompilerError(f"Incompatible types in assignment: {left_type.value} and {right_type.value}")
+        return left_type
     def visit_BinOp(self, node: BinOp):
+        print(f"Visiting BinOp: {node.op.type}")  # Debug print
         left_type = self.visit(node.left)
         right_type = self.visit(node.right)
         op = node.op.type
 
-        if not self._check_type_compatibility(left_type, right_type):
-            raise CompilerError(f"Incompatible types for operator '{op}'")
+        # Handle VariableSymbol
+        if isinstance(left_type, VariableSymbol):
+            left_type = left_type.type
+        if isinstance(right_type, VariableSymbol):
+            right_type = right_type.type
+
+        print(f"Left operand type: {left_type}")  # Debug print
+        print(f"Right operand type: {right_type}")  # Debug print
+
+        if left_type is None:
+            raise CompilerError(f"Unable to determine type for left operand of '{op}' operator")
+        if right_type is None:
+            raise CompilerError(f"Unable to determine type for right operand of '{op}' operator")
+
+        if op == 'INDEX':  # Array indexing
+            if not isinstance(left_type, ArrayType):
+                raise CompilerError(f"Indexing operation not supported for type {left_type.value}")
+            if not isinstance(right_type, SimpleType) or right_type.value != 'INTEGER':
+                raise CompilerError(f"Array index must be of type INTEGER, got {right_type.value}")
+            return left_type.element_type
 
         if op in ('PLUS', 'MINUS', 'MUL', 'DIV'):
-            if not (isinstance(left_type, SimpleType) and left_type.value in ('INTEGER', 'REAL')):
-                raise CompilerError(f"Invalid type for arithmetic operator '{op}'")
+            if not (isinstance(left_type, SimpleType) and isinstance(right_type, SimpleType)):
+                raise CompilerError(f"Invalid types for arithmetic operator '{op}': {left_type.value} and {right_type.value}")
+            if left_type.value not in ('INTEGER', 'REAL') or right_type.value not in ('INTEGER', 'REAL'):
+                raise CompilerError(f"Invalid types for arithmetic operator '{op}': {left_type.value} and {right_type.value}")
             if left_type.value == 'REAL' or right_type.value == 'REAL':
                 return SimpleType(self.create_type_token('REAL'))
             else:
                 return SimpleType(self.create_type_token('INTEGER'))
         elif op in ('EQ', 'NEQ', 'LT', 'LTE', 'GT', 'GTE'):
-            if not (isinstance(left_type, SimpleType) and left_type.value in ('INTEGER', 'REAL', 'STRING')):
-                raise CompilerError(f"Invalid type for comparison operator '{op}'")
+            if not (isinstance(left_type, SimpleType) and isinstance(right_type, SimpleType)):
+                raise CompilerError(f"Invalid types for comparison operator '{op}': {left_type.value} and {right_type.value}")
+            if left_type.value not in ('INTEGER', 'REAL', 'STRING', 'BOOLEAN') or right_type.value not in ('INTEGER', 'REAL', 'STRING', 'BOOLEAN'):
+                raise CompilerError(f"Invalid types for comparison operator '{op}': {left_type.value} and {right_type.value}")
+            if left_type.value != right_type.value and not (left_type.value in ('INTEGER', 'REAL') and right_type.value in ('INTEGER', 'REAL')):
+                raise CompilerError(f"Incompatible types for comparison operator '{op}': {left_type.value} and {right_type.value}")
             return SimpleType(self.create_type_token('BOOLEAN'))
         elif op in ('AND', 'OR'):
-            if not (isinstance(left_type, SimpleType) and left_type.value == 'BOOLEAN'):
-                raise CompilerError(f"Invalid type for logical operator '{op}'")
+            if not (isinstance(left_type, SimpleType) and isinstance(right_type, SimpleType)):
+                raise CompilerError(f"Invalid types for logical operator '{op}': {left_type.value} and {right_type.value}")
+            if left_type.value != 'BOOLEAN' or right_type.value != 'BOOLEAN':
+                raise CompilerError(f"Invalid types for logical operator '{op}': {left_type.value} and {right_type.value}")
             return SimpleType(self.create_type_token('BOOLEAN'))
+        else:
+            raise CompilerError(f"Unsupported binary operator: {op}")
 
     def visit_UnaryOp(self, node: UnaryOp):
         expr_type = self.visit(node.expr)
@@ -214,18 +258,20 @@ class SemanticAnalyzer:
 
         if op in ('PLUS', 'MINUS'):
             if not (isinstance(expr_type, SimpleType) and expr_type.value in ('INTEGER', 'REAL')):
-                raise CompilerError(f"Invalid type for unary operator '{op}'")
+                raise CompilerError(f"Invalid type for unary operator '{op}': {expr_type.value}")
             return expr_type
         elif op == 'NOT':
             if not (isinstance(expr_type, SimpleType) and expr_type.value == 'BOOLEAN'):
-                raise CompilerError(f"Invalid type for unary operator '{op}'")
+                raise CompilerError(f"Invalid type for unary operator '{op}': {expr_type.value}")
             return expr_type
 
     def visit_Num(self, node: Num):
         if isinstance(node.value, int):
             return SimpleType(self.create_type_token('INTEGER'))
-        else:
+        elif isinstance(node.value, float):
             return SimpleType(self.create_type_token('REAL'))
+        else:
+            raise CompilerError(f"Unexpected numeric type: {type(node.value)}")
 
     def visit_String(self, node: String):
         return SimpleType(self.create_type_token('STRING'))
@@ -235,7 +281,8 @@ class SemanticAnalyzer:
 
     def visit_CompoundStatement(self, node: CompoundStatement):
         for statement in node.statements:
-            self.visit(statement)
+            if statement is not None:
+                self.visit(statement)
 
     def visit_If(self, node: If):
         condition_type = self.visit(node.condition)
@@ -288,8 +335,23 @@ class SemanticAnalyzer:
             if not self._check_type_compatibility(param.type, arg_type):
                 raise CompilerError(f"Incompatible argument type for parameter {i+1} of '{node.name}'")
 
-    def _check_type_compatibility(self, type1: Union[SimpleType, ArrayType], type2: Union[SimpleType, ArrayType]) -> bool:
+        if isinstance(symbol, FunctionSymbol):
+            return symbol.return_type
+        return None
+
+    def visit_NoOp(self, node: NoOp):
+        return None
+
+    def _check_type_compatibility(self, type1: Union[SimpleType, ArrayType, VariableSymbol], type2: Union[SimpleType, ArrayType, VariableSymbol]) -> bool:
+        if isinstance(type1, VariableSymbol):
+            type1 = type1.type
+        if isinstance(type2, VariableSymbol):
+            type2 = type2.type
+
         if isinstance(type1, SimpleType) and isinstance(type2, SimpleType):
+            # Allow implicit conversion from INTEGER to REAL
+            if (type1.value == 'REAL' and type2.value == 'INTEGER') or (type1.value == 'INTEGER' and type2.value == 'REAL'):
+                return True
             return type1.value == type2.value
         elif isinstance(type1, ArrayType) and isinstance(type2, ArrayType):
             return (self._check_type_compatibility(type1.element_type, type2.element_type) and
@@ -299,4 +361,11 @@ class SemanticAnalyzer:
 
 def analyze(ast: Program):
     semantic_analyzer = SemanticAnalyzer()
-    semantic_analyzer.visit(ast)
+    try:
+        semantic_analyzer.visit(ast)
+    except CompilerError as e:
+        print(f"Semantic error: {e}")
+        raise
+    except Exception as e:
+        print(f"Unexpected error during semantic analysis: {e}")
+        raise

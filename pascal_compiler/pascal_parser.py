@@ -134,6 +134,9 @@ class ProcedureCall(ASTNode):
         self.name = name
         self.actual_params = actual_params
 
+class NoOp(ASTNode):
+    pass
+
 class Parser:
     def __init__(self, tokens: List[Token]):
         self.tokens = tokens
@@ -305,6 +308,9 @@ class Parser:
             return self.for_statement()
         elif self.current_token.type == 'CASE':
             return self.case_statement()
+        elif self.current_token.type == 'SEMICOLON':
+            self.eat('SEMICOLON')
+            return NoOp()
         else:
             return self.empty()
 
@@ -396,8 +402,8 @@ class Parser:
         
         return node
 
-    def empty(self) -> None:
-        return None
+    def empty(self) -> NoOp:
+        return NoOp()
     
     def expr(self) -> ASTNode:
         node = self.simple_expr()
@@ -461,4 +467,4 @@ class Parser:
 
 def parse(tokens: List[Token]) -> Program:
     parser = Parser(tokens)
-    return parser.parse()   
+    return parser.parse()
